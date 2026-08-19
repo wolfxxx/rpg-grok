@@ -1,5 +1,5 @@
 export type HeroId = 'warden' | 'mystic' | 'scout'
-export type EnemyId = 'beetle' | 'wraith' | 'golem'
+export type EnemyId = 'beetle' | 'wraith' | 'golem' | 'goblin' | 'crab' | 'devil'
 
 export interface HeroDef {
   id: HeroId
@@ -142,5 +142,50 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
     attackCooldown: 1.85,
     xp: 100,
     isBoss: true,
+  },
+  goblin: {
+    id: 'goblin',
+    name: 'Veilkin',
+    image: '/assets/enemy-beetle.png',
+    sprite: '/assets/sprite-beetle.png',
+    hp: 38,
+    atk: 11,
+    speed: 178,
+    radius: 22,
+    spriteSize: 72,
+    aggro: 270,
+    attackRange: 92,
+    attackCooldown: 1.12,
+    xp: 18,
+  },
+  crab: {
+    id: 'crab',
+    name: 'Scrap Crab',
+    image: '/assets/enemy-beetle.png',
+    sprite: '/assets/sprite-beetle.png',
+    hp: 92,
+    atk: 17,
+    speed: 90,
+    radius: 34,
+    spriteSize: 88,
+    aggro: 250,
+    attackRange: 102,
+    attackCooldown: 1.7,
+    xp: 28,
+  },
+  devil: {
+    id: 'devil',
+    name: 'Ridge Fiend',
+    image: '/assets/enemy-wraith.png',
+    sprite: '/assets/sprite-wraith.png',
+    hp: 158,
+    atk: 24,
+    speed: 152,
+    radius: 32,
+    spriteSize: 110,
+    aggro: 360,
+    attackRange: 186,
+    attackCooldown: 1.35,
+    xp: 55,
   },
 }

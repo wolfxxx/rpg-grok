@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { AnimName } from './sprites'
 import { findJoints, loadActorMesh, type JointKey } from './meshLibrary'
 
-export type ActorKind = 'warden' | 'mystic' | 'scout' | 'beetle' | 'wraith' | 'golem' | 'sage'
+export type ActorKind = 'warden' | 'mystic' | 'scout' | 'beetle' | 'wraith' | 'golem' | 'sage' | 'goblin' | 'crab' | 'devil'
 export type ActorAnim = AnimName
 
 const PAL: Record<
@@ -15,6 +15,9 @@ const PAL: Record<
   beetle: { primary: 0x7a5844, secondary: 0x4a3428, accent: 0xe8a87c, skin: 0x8a6a54, dark: 0x1a1410, hair: 0x2a2018, iris: 0xe8a87c },
   wraith: { primary: 0x2a3e48, secondary: 0x152028, accent: 0x5eb1bf, skin: 0x8ec4ce, dark: 0x0a1014, hair: 0x1a2830, iris: 0xb8f0f8 },
   golem: { primary: 0x6a7278, secondary: 0x3a4248, accent: 0x5eb1bf, skin: 0x7a8288, dark: 0x1a2024, hair: 0x2a3034, iris: 0x5eb1bf },
+  goblin: { primary: 0x4a5a3c, secondary: 0x2a3424, accent: 0x7cbc8a, skin: 0x8a9a62, dark: 0x141810, hair: 0x2a2018, iris: 0xc4d46a },
+  crab: { primary: 0x6a6e72, secondary: 0x3a4046, accent: 0xe8a87c, skin: 0x8a8e92, dark: 0x1a1c1e, hair: 0x2a2c2e, iris: 0xe8a87c },
+  devil: { primary: 0x5a3034, secondary: 0x2a181c, accent: 0xc45c4a, skin: 0x8a4a42, dark: 0x140c0e, hair: 0x1a1012, iris: 0xe07040 },
   sage: { primary: 0x4a5058, secondary: 0x32383e, accent: 0xe8a87c, skin: 0xd4b898, dark: 0x141a1e, hair: 0xe8e2d8, iris: 0x5a6a58 },
 }
 
@@ -203,14 +206,17 @@ export class Actor3D {
   constructor(kind: ActorKind) {
     this.kind = kind
     this.root.add(this.body)
-    if (kind === 'beetle') this.buildBeetle()
+    if (kind === 'beetle' || kind === 'crab') this.buildBeetle()
     else if (kind === 'wraith') this.buildWraith()
     else if (kind === 'golem') this.buildGolem()
     else this.buildHumanoid()
     this.buildTrail()
 
     const shadow = new THREE.Mesh(
-      new THREE.CircleGeometry(kind === 'golem' ? 0.95 : kind === 'beetle' ? 0.62 : kind === 'wraith' ? 0.55 : 0.45, 24),
+      new THREE.CircleGeometry(
+        kind === 'golem' ? 0.95 : kind === 'crab' ? 0.72 : kind === 'beetle' ? 0.62 : kind === 'devil' ? 0.55 : kind === 'wraith' ? 0.55 : 0.45,
+        24,
+      ),
       new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.34, depthWrite: false }),
     )
     shadow.rotation.x = -Math.PI / 2
@@ -281,7 +287,7 @@ export class Actor3D {
     this.restyleImported(scene)
     scene.position.set(0, 0, 0)
     for (const child of scene.children) {
-      if (child.name === 'Kael' || child.name === 'Golem' || child.name === 'Seris' || child.name === 'Nyra' || child.name === 'Beetle' || child.name === 'Wraith') {
+      if (child.name === 'Kael' || child.name === 'Golem' || child.name === 'Seris' || child.name === 'Nyra' || child.name === 'Beetle' || child.name === 'Wraith' || child.name === 'Goblin' || child.name === 'Devil' || child.name === 'Crab') {
         child.position.set(0, 0, 0)
       }
     }
@@ -315,14 +321,7 @@ export class Actor3D {
         if (!std?.color) continue
         std.side = THREE.FrontSide
         if (mesh.geometry.getAttribute('color')) std.vertexColors = true
-        if (
-          this.kind === 'beetle' ||
-          this.kind === 'wraith' ||
-          this.kind === 'golem' ||
-          this.kind === 'warden' ||
-          this.kind === 'mystic' ||
-          this.kind === 'scout'
-        ) {
+        if (this.texturedImport()) {
           if (std.map) {
             std.map.colorSpace = THREE.SRGBColorSpace
             std.map.needsUpdate = true
@@ -331,15 +330,17 @@ export class Actor3D {
           // shows, then tint down — these maps already have lighting baked in.
           if (!std.metalnessMap && std.metalness >= 0.85) {
             std.metalness =
-              this.kind === 'beetle'
-                ? 0.4
+              this.kind === 'beetle' || this.kind === 'crab'
+                ? this.kind === 'crab'
+                  ? 0.42
+                  : 0.4
                 : this.kind === 'warden'
                   ? 0.38
                   : this.kind === 'golem'
                     ? 0.18
-                    : this.kind === 'mystic'
+                    : this.kind === 'mystic' || this.kind === 'devil'
                       ? 0.14
-                      : this.kind === 'scout'
+                      : this.kind === 'scout' || this.kind === 'goblin'
                         ? 0.16
                         : 0.12
           }
@@ -347,21 +348,26 @@ export class Actor3D {
             std.roughness =
               this.kind === 'beetle'
                 ? 0.5
-                : this.kind === 'warden'
-                  ? 0.48
-                  : this.kind === 'golem'
-                    ? 0.62
-                    : this.kind === 'mystic'
+                : this.kind === 'crab'
+                  ? 0.46
+                  : this.kind === 'warden'
+                    ? 0.48
+                    : this.kind === 'golem'
                       ? 0.62
-                      : this.kind === 'scout'
-                        ? 0.58
-                        : 0.72
+                      : this.kind === 'mystic' || this.kind === 'devil'
+                        ? 0.62
+                        : this.kind === 'scout' || this.kind === 'goblin'
+                          ? 0.58
+                          : 0.72
           }
           if (this.kind === 'beetle') std.color.setRGB(0.78, 0.72, 0.64)
+          else if (this.kind === 'crab') std.color.setRGB(0.74, 0.73, 0.7)
           else if (this.kind === 'wraith') std.color.setRGB(0.62, 0.68, 0.7)
           else if (this.kind === 'warden') std.color.setRGB(0.84, 0.81, 0.76)
           else if (this.kind === 'mystic') std.color.setRGB(0.86, 0.84, 0.88)
           else if (this.kind === 'scout') std.color.setRGB(0.82, 0.84, 0.78)
+          else if (this.kind === 'goblin') std.color.setRGB(0.8, 0.84, 0.72)
+          else if (this.kind === 'devil') std.color.setRGB(0.84, 0.72, 0.68)
           else std.color.setRGB(0.82, 0.78, 0.7)
         }
         this.track(std)
@@ -373,13 +379,27 @@ export class Actor3D {
       if (size.length() < 0.18) continue
       const verts = mesh.geometry.attributes.position?.count ?? 0
       if (verts > 40000) continue
-      if (this.kind === 'beetle' || this.kind === 'wraith' || this.kind === 'golem' || this.kind === 'warden' || this.kind === 'mystic' || this.kind === 'scout') continue
+      if (this.texturedImport()) continue
       const outline = new THREE.Mesh(mesh.geometry, this.outlineMat)
       outline.scale.setScalar(1.018)
       outline.castShadow = false
       outline.receiveShadow = false
       mesh.add(outline)
     }
+  }
+
+  private texturedImport(): boolean {
+    return (
+      this.kind === 'beetle' ||
+      this.kind === 'wraith' ||
+      this.kind === 'golem' ||
+      this.kind === 'warden' ||
+      this.kind === 'mystic' ||
+      this.kind === 'scout' ||
+      this.kind === 'goblin' ||
+      this.kind === 'crab' ||
+      this.kind === 'devil'
+    )
   }
 
   private track<T extends THREE.MeshToonMaterial | THREE.MeshStandardMaterial>(m: T): T {
@@ -841,7 +861,7 @@ export class Actor3D {
     if (this.anim === 'dodge' && this.animT > 0.26) this.anim = moving ? 'walk' : 'idle'
     if (this.anim !== 'attack' && this.anim !== 'dodge') this.anim = moving ? 'walk' : 'idle'
 
-    const speed = this.kind === 'golem' ? 5.2 : this.kind === 'beetle' ? 11 : this.kind === 'wraith' ? 7 : 9.2
+    const speed = this.kind === 'golem' ? 5.2 : this.kind === 'beetle' || this.kind === 'crab' ? 11 : this.kind === 'wraith' ? 7 : this.kind === 'goblin' ? 12 : 9.2
     this.phase += dt * (this.anim === 'walk' ? speed : this.anim === 'idle' ? 2.1 : 13)
     const swing = Math.sin(this.phase)
 
@@ -885,7 +905,7 @@ export class Actor3D {
       }
     }
 
-    if (this.kind === 'beetle') this.poseBeetle(swing, wind, arc)
+    if (this.kind === 'beetle' || this.kind === 'crab') this.poseBeetle(swing, wind, arc)
     else if (this.kind === 'wraith') this.poseWraith(swing, wind, arc)
     else if (this.anim === 'walk') this.poseWalk(swing)
     else if (this.anim === 'idle') this.poseIdle()
@@ -916,7 +936,7 @@ export class Actor3D {
     const kael = this.gltfWarden()
     const seris = this.gltfMystic()
     const nyra = this.gltfScout()
-    const compact = golem || kael
+    const compact = golem || kael || this.kind === 'devil' || this.kind === 'goblin'
     const authored = compact || seris || nyra
     const stride = robe ? 0.18 : scout ? 0.28 : compact ? 0.34 : 0.62
     const shinRest = robe || scout || compact ? 0.08 : 0.18
@@ -943,7 +963,7 @@ export class Actor3D {
   }
 
   private poseIdle(): void {
-    if (this.kind === 'golem' || this.gltfWarden() || this.gltfMystic() || this.gltfScout()) {
+    if (this.kind === 'golem' || this.gltfWarden() || this.gltfMystic() || this.gltfScout() || this.kind === 'goblin' || this.kind === 'devil') {
       this.armL.rotation.x = Math.sin(this.phase) * 0.05
       this.armR.rotation.x = -Math.sin(this.phase) * 0.04
       this.head.rotation.y = Math.sin(this.phase * 0.4) * 0.1
@@ -1282,6 +1302,12 @@ export class Actor3D {
           m.emissiveIntensity = 0.16
         } else if (this.kind === 'golem') {
           m.emissive.setHex(0xb45a3a)
+          m.emissiveIntensity = 0.14
+        } else if (this.kind === 'devil') {
+          m.emissive.setHex(0xc45c4a)
+          m.emissiveIntensity = 0.16
+        } else if (this.kind === 'crab') {
+          m.emissive.setHex(0xe8a87c)
           m.emissiveIntensity = 0.14
         } else {
           m.emissive.setHex(0xffffff)

@@ -10,6 +10,9 @@ export const ACTOR_GLB: Partial<Record<ActorKind, string>> = {
   golem: publicUrl('/models/golem.glb'),
   beetle: publicUrl('/models/beetle.glb'),
   wraith: publicUrl('/models/wraith.glb'),
+  goblin: publicUrl('/models/goblin.glb'),
+  crab: publicUrl('/models/crab.glb'),
+  devil: publicUrl('/models/devil.glb'),
 }
 
 const JOINT_ALIASES: Record<string, JointKey> = {

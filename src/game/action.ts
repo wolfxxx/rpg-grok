@@ -81,8 +81,22 @@ function angDiff(a: number, b: number): number {
 }
 
 function scaleFoes(act: ActId): Record<EnemyId, EnemyDef> {
-  const hpMul: Record<EnemyId, number> = act === 2 ? { beetle: 1.35, wraith: 1.4, golem: 1.5 } : { beetle: 1, wraith: 1, golem: 1 }
-  const atkMul: Record<EnemyId, number> = act === 2 ? { beetle: 1.2, wraith: 1.2, golem: 1.22 } : { beetle: 1, wraith: 1, golem: 1 }
+  const hpMul: Record<EnemyId, number> = {
+    beetle: act === 2 ? 1.35 : 1,
+    wraith: act === 2 ? 1.4 : 1,
+    golem: act === 2 ? 1.5 : 1,
+    goblin: 1,
+    crab: 1,
+    devil: 1,
+  }
+  const atkMul: Record<EnemyId, number> = {
+    beetle: act === 2 ? 1.2 : 1,
+    wraith: act === 2 ? 1.2 : 1,
+    golem: act === 2 ? 1.22 : 1,
+    goblin: 1,
+    crab: 1,
+    devil: 1,
+  }
   const out = {} as Record<EnemyId, EnemyDef>
   for (const id of Object.keys(ENEMIES) as EnemyId[]) {
     const d = ENEMIES[id]
@@ -265,7 +279,8 @@ export class ActionGame {
       ? [
           'The camp emptied after the Golem fell.',
           'We held a plug. The wound sank anyway. They left marks on the road. E to read them.',
-          'South of the gate a ridge looks on the tear. The well still mends if you stand still.',
+          'Veilkin pick the abandoned cart-road. A scrap crab still walks the pinch.',
+          'South of the gate a ridge looks on the tear. Something horned watches it. The well still mends if you stand still.',
           'The Colossus is that wound, walking. It wakes if you enter the basin.',
         ]
       : [
@@ -932,18 +947,19 @@ export class ActionGame {
       return
     }
     if (kind === 'bolt') {
-      this.spawnBolt(e.x, e.y, e.aim, 340, def.atk, 0.85, false, 0x5eb1bf, 15)
+      const col = e.id === 'devil' ? 0xc45c4a : 0x5eb1bf
+      this.spawnBolt(e.x, e.y, e.aim, e.id === 'devil' ? 300 : 340, def.atk, 0.85, false, col, 15)
       audio.play('swing')
       return
     }
     if (kind === 'slam') {
-      const r = 118
+      const r = e.id === 'crab' ? 74 : 118
       this.view.spawnSlam(e.x, e.y, r)
       audio.play('slam')
-      this.shake = 0.62
+      this.shake = e.id === 'crab' ? 0.34 : 0.62
       const d = dist(this.x, this.y, e.x, e.y)
       if (d < r + this.radius) {
-        const inner = d < 62
+        const inner = d < (e.id === 'crab' ? 38 : 62)
         this.hurtPlayer(inner ? Math.round(def.atk * 1.45) : def.atk, e.aim, true)
       }
     } else if (kind === 'sweep') {
@@ -1064,12 +1080,29 @@ export class ActionGame {
         continue
       }
 
-      if (e.id === 'beetle') {
-        if (d > 100) {
+      if (e.id === 'devil') {
+        if (d > 108) {
           this.moveEntity(e, Math.cos(e.facing) * def.speed * dt, Math.sin(e.facing) * def.speed * dt, def.radius * 0.7)
           e.moving = true
         } else if (e.attackCd <= 0) {
-          this.beginAttack(e, 'lunge', 0.78)
+          if (d > 78 && e.nextHeavy === 0) {
+            this.beginAttack(e, 'bolt', 0.72)
+            e.nextHeavy = 1
+          } else {
+            this.beginAttack(e, 'lunge', 0.62)
+            e.nextHeavy = 0
+          }
+        }
+        continue
+      }
+
+      if (e.id === 'beetle' || e.id === 'goblin' || e.id === 'crab') {
+        const close = e.id === 'goblin' ? 86 : e.id === 'crab' ? 108 : 100
+        if (d > close) {
+          this.moveEntity(e, Math.cos(e.facing) * def.speed * dt, Math.sin(e.facing) * def.speed * dt, def.radius * 0.7)
+          e.moving = true
+        } else if (e.attackCd <= 0) {
+          this.beginAttack(e, e.id === 'crab' ? 'slam' : 'lunge', e.id === 'crab' ? 0.92 : e.id === 'goblin' ? 0.58 : 0.78)
         }
         continue
       }
@@ -1387,13 +1420,13 @@ export class ActionGame {
   private callVeil(kind: 'wake' | 'rage'): void {
     const [bx, by] = LANDMARKS.boss
     if (kind === 'wake') {
-      this.dropFoe('wraith', bx - 90, by - 24, 'veil-w1')
-      this.dropFoe('wraith', bx + 72, by + 36, 'veil-w2')
+      this.dropFoe('goblin', bx - 86, by - 20, 'veil-g1')
+      this.dropFoe('crab', bx + 78, by + 32, 'veil-c1')
       return
     }
-    this.dropFoe('beetle', bx - 70, by + 58, 'veil-b1')
-    this.dropFoe('beetle', bx + 82, by - 48, 'veil-b2')
-    this.onEvent({ type: 'toast', text: 'The veil spills beetles.' })
+    this.dropFoe('goblin', bx - 70, by + 58, 'veil-g2')
+    this.dropFoe('goblin', bx + 82, by - 48, 'veil-g3')
+    this.onEvent({ type: 'toast', text: 'The veil spills veilkin.' })
   }
 
   private makeEnemy(id: Enemy['id'], x: number, y: number, key: string): Enemy {

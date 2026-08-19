@@ -1,3 +1,5 @@
+import type { EnemyId } from './catalog'
+
 export const WORLD_W = 2240
 export const WORLD_H = 1600
 export const TILE = 64
@@ -271,7 +273,7 @@ const ACT2_SITES: StorySite[] = [
     y: 1080,
     lines: [
       'The ridge looks on the southwest tear.',
-      'It sits lower than it did. A shape walks in it when the light hits.',
+      'It sits lower than it did. A horned shape walks there when the light hits.',
       'This is the wound. The road is only how you reach it.',
     ],
   },
@@ -325,7 +327,7 @@ export function createProps(): WorldProp[] {
   ]
 }
 
-export type AmbushFoe = { id: 'beetle' | 'wraith'; dx: number; dy: number }
+export type AmbushFoe = { id: EnemyId; dx: number; dy: number }
 
 export type Ambush = {
   key: string
@@ -336,7 +338,7 @@ export type Ambush = {
   foes: AmbushFoe[]
 }
 
-/** Act 2 keeps two fights. The rest of the road is for walking and reading. */
+/** Act 2: raiders on the road, a crab at the pinch, a fiend on the ridge. */
 export function createAmbushes(): Ambush[] {
   if (currentAct !== 2) return []
   const L = LANDMARKS
@@ -346,10 +348,11 @@ export function createAmbushes(): Ambush[] {
       x: L.gate[0],
       y: L.gate[1],
       r: 150,
-      toast: 'Something still hunts the pinch.',
+      toast: 'Veilkin still hunt the pinch.',
       foes: [
-        { id: 'beetle', dx: -80, dy: 30 },
-        { id: 'wraith', dx: 40, dy: -70 },
+        { id: 'goblin', dx: -78, dy: 28 },
+        { id: 'goblin', dx: 64, dy: -46 },
+        { id: 'crab', dx: 12, dy: 70 },
       ],
     },
     {
@@ -359,15 +362,15 @@ export function createAmbushes(): Ambush[] {
       r: 140,
       toast: 'The well is not a hold.',
       foes: [
-        { id: 'beetle', dx: 70, dy: -20 },
-        { id: 'wraith', dx: -40, dy: 70 },
+        { id: 'crab', dx: 70, dy: -18 },
+        { id: 'goblin', dx: -52, dy: 64 },
       ],
     },
   ]
 }
 
 export interface EnemySpawn {
-  id: 'beetle' | 'wraith' | 'golem'
+  id: EnemyId
   x: number
   y: number
   key: string
@@ -375,7 +378,14 @@ export interface EnemySpawn {
 
 export function createEnemySpawns(): EnemySpawn[] {
   if (currentAct === 2) {
-    return [{ id: 'golem', x: LANDMARKS.boss[0], y: LANDMARKS.boss[1], key: 'boss' }]
+    const L = LANDMARKS
+    return [
+      { id: 'goblin', x: 1180, y: 500, key: 'roadG1' },
+      { id: 'goblin', x: 1240, y: 560, key: 'roadG2' },
+      { id: 'crab', x: 660, y: 700, key: 'roadCrab' },
+      { id: 'devil', x: 1480, y: 990, key: 'ridgeDevil' },
+      { id: 'golem', x: L.boss[0], y: L.boss[1], key: 'boss' },
+    ]
   }
   return [
     { id: 'beetle', x: 640, y: 640, key: 'road1' },

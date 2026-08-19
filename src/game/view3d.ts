@@ -76,6 +76,9 @@ const BAR_H: Record<string, number> = {
   beetle: 1.12,
   wraith: 2.55,
   golem: 4.15,
+  goblin: 1.58,
+  crab: 1.18,
+  devil: 2.12,
 }
 
 class EnemyHpBar {
