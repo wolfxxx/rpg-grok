@@ -40,7 +40,8 @@ class App {
   renderTitle(): void {
     app.innerHTML = `
       <div class="shell title-shell">
-        <section class="title-screen" style="--title-bg: url('${publicUrl('/assets/velum-cover.png')}')">
+        <section class="title-screen">
+          <img class="title-cover" src="${publicUrl('/assets/velum-cover.png')}" alt="" />
           <div class="title-content">
             <div class="btn-row"><button class="btn" id="start">Play</button></div>
             <p class="hint">Hold LMB to move · Click enemies to attack · Q skill · RMB dodge</p>
