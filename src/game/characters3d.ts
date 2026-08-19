@@ -198,6 +198,7 @@ export class Actor3D {
   private tall = 1
   private attackLen = 0.48
   private dead = false
+  private fromGltf = false
 
   constructor(kind: ActorKind) {
     this.kind = kind
@@ -209,7 +210,7 @@ export class Actor3D {
     this.buildTrail()
 
     const shadow = new THREE.Mesh(
-      new THREE.CircleGeometry(kind === 'golem' ? 0.95 : 0.45, 24),
+      new THREE.CircleGeometry(kind === 'golem' ? 0.95 : kind === 'beetle' ? 0.62 : kind === 'wraith' ? 0.55 : 0.45, 24),
       new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.34, depthWrite: false }),
     )
     shadow.rotation.x = -Math.PI / 2
@@ -280,10 +281,19 @@ export class Actor3D {
     this.restyleImported(scene)
     scene.position.set(0, 0, 0)
     for (const child of scene.children) {
-      if (child.name === 'Kael' || child.name === 'Golem' || child.name === 'Seris' || child.name === 'Nyra') {
+      if (child.name === 'Kael' || child.name === 'Golem' || child.name === 'Seris' || child.name === 'Nyra' || child.name === 'Beetle' || child.name === 'Wraith') {
         child.position.set(0, 0, 0)
       }
     }
+    this.beetleLegs.length = 0
+    for (let i = 0; i < 6; i++) {
+      const leg = scene.getObjectByName(`BLeg${i}`)
+      if (leg) this.beetleLegs.push(leg as THREE.Group)
+    }
+    this.fromGltf = true
+    if (this.kind === 'warden') this.bulk = 1
+    if (this.kind === 'mystic') this.tall = 1
+    if (this.kind === 'scout') this.bulk = 1
     this.body.add(scene)
   }
 
@@ -304,6 +314,56 @@ export class Actor3D {
         const std = mat as THREE.MeshStandardMaterial
         if (!std?.color) continue
         std.side = THREE.FrontSide
+        if (mesh.geometry.getAttribute('color')) std.vertexColors = true
+        if (
+          this.kind === 'beetle' ||
+          this.kind === 'wraith' ||
+          this.kind === 'golem' ||
+          this.kind === 'warden' ||
+          this.kind === 'mystic' ||
+          this.kind === 'scout'
+        ) {
+          if (std.map) {
+            std.map.colorSpace = THREE.SRGBColorSpace
+            std.map.needsUpdate = true
+          }
+          // glTF metalness defaults to 1 when omitted. Drop it so albedo
+          // shows, then tint down — these maps already have lighting baked in.
+          if (!std.metalnessMap && std.metalness >= 0.85) {
+            std.metalness =
+              this.kind === 'beetle'
+                ? 0.4
+                : this.kind === 'warden'
+                  ? 0.38
+                  : this.kind === 'golem'
+                    ? 0.18
+                    : this.kind === 'mystic'
+                      ? 0.14
+                      : this.kind === 'scout'
+                        ? 0.16
+                        : 0.12
+          }
+          if (!std.roughnessMap) {
+            std.roughness =
+              this.kind === 'beetle'
+                ? 0.5
+                : this.kind === 'warden'
+                  ? 0.48
+                  : this.kind === 'golem'
+                    ? 0.62
+                    : this.kind === 'mystic'
+                      ? 0.62
+                      : this.kind === 'scout'
+                        ? 0.58
+                        : 0.72
+          }
+          if (this.kind === 'beetle') std.color.setRGB(0.78, 0.72, 0.64)
+          else if (this.kind === 'wraith') std.color.setRGB(0.62, 0.68, 0.7)
+          else if (this.kind === 'warden') std.color.setRGB(0.84, 0.81, 0.76)
+          else if (this.kind === 'mystic') std.color.setRGB(0.86, 0.84, 0.88)
+          else if (this.kind === 'scout') std.color.setRGB(0.82, 0.84, 0.78)
+          else std.color.setRGB(0.82, 0.78, 0.7)
+        }
         this.track(std)
       }
       // Per-piece 7% hulls turn a 100-part GLB into a black toy. Skip trim
@@ -311,6 +371,9 @@ export class Actor3D {
       box.setFromBufferAttribute(mesh.geometry.attributes.position as THREE.BufferAttribute)
       box.getSize(size)
       if (size.length() < 0.18) continue
+      const verts = mesh.geometry.attributes.position?.count ?? 0
+      if (verts > 40000) continue
+      if (this.kind === 'beetle' || this.kind === 'wraith' || this.kind === 'golem' || this.kind === 'warden' || this.kind === 'mystic' || this.kind === 'scout') continue
       const outline = new THREE.Mesh(mesh.geometry, this.outlineMat)
       outline.scale.setScalar(1.018)
       outline.castShadow = false
@@ -786,20 +849,21 @@ export class Actor3D {
     this.legR.rotation.set(0, 0, 0)
     this.shinL.rotation.set(0, 0, 0)
     this.shinR.rotation.set(0, 0, 0)
-    this.armL.rotation.set(0, 0, this.kind === 'wraith' ? -0.25 : -0.12)
-    this.armR.rotation.set(0, 0, this.kind === 'wraith' ? 0.25 : 0.12)
-    this.forearmL.rotation.set(0.12, 0, 0)
-    this.forearmR.rotation.set(0.12, 0, 0)
+    const armZ = this.fromGltf ? 0 : this.kind === 'wraith' ? 0.25 : this.kind === 'golem' ? 0 : 0.12
+    this.armL.rotation.set(0, 0, -armZ)
+    this.armR.rotation.set(0, 0, armZ)
+    this.forearmL.rotation.set(this.kind === 'golem' || this.fromGltf ? 0 : 0.12, 0, 0)
+    this.forearmR.rotation.set(this.kind === 'golem' || this.fromGltf ? 0 : 0.12, 0, 0)
     this.torso.rotation.set(0, 0, 0)
     this.hip.rotation.set(0, 0, 0)
-    this.head.rotation.set(-0.08, 0, 0)
+    this.head.rotation.set(this.fromGltf || this.kind === 'golem' ? 0 : -0.08, 0, 0)
     this.body.position.set(0, this.kind === 'wraith' ? 0.12 : 0, 0)
     this.body.rotation.set(0, 0, 0)
     this.body.scale.set(this.bulk, this.tall, this.bulk)
     this.cape.rotation.set(0.12, 0, 0)
     this.ponytail.rotation.set(0.15, 0, 0)
     this.pony2.rotation.set(0.08, 0, 0)
-    this.weapon.rotation.set(-0.55, 0, 0.12)
+    this.weapon.rotation.set(this.kind === 'golem' || this.gltfWarden() || this.gltfMystic() || this.gltfScout() ? 0 : -0.55, 0, this.kind === 'golem' || this.gltfWarden() || this.gltfMystic() || this.gltfScout() ? 0 : 0.12)
     this.orbit.rotation.y += dt * 2.4
 
     let wind = 0
@@ -833,21 +897,41 @@ export class Actor3D {
     this.updateFlash()
   }
 
+  private gltfWarden(): boolean {
+    return this.fromGltf && this.kind === 'warden'
+  }
+
+  private gltfMystic(): boolean {
+    return this.fromGltf && this.kind === 'mystic'
+  }
+
+  private gltfScout(): boolean {
+    return this.fromGltf && this.kind === 'scout'
+  }
+
   private poseWalk(swing: number): void {
     const robe = this.kind === 'mystic' || this.kind === 'sage'
-    const stride = robe ? 0.18 : 0.62
-    const shinRest = robe ? 0.08 : 0.18
-    const shinKick = robe ? 0.2 : 0.7
+    const scout = this.kind === 'scout'
+    const golem = this.kind === 'golem'
+    const kael = this.gltfWarden()
+    const seris = this.gltfMystic()
+    const nyra = this.gltfScout()
+    const compact = golem || kael
+    const authored = compact || seris || nyra
+    const stride = robe ? 0.18 : scout ? 0.28 : compact ? 0.34 : 0.62
+    const shinRest = robe || scout || compact ? 0.08 : 0.18
+    const shinKick = robe ? 0.2 : scout ? 0.26 : compact ? 0.34 : 0.7
     this.legL.rotation.x = swing * stride
     this.legR.rotation.x = -swing * stride
     this.shinL.rotation.x = shinRest + Math.max(0, swing) * shinKick
     this.shinR.rotation.x = shinRest + Math.max(0, -swing) * shinKick
-    this.armL.rotation.x = -swing * 0.48
-    this.armR.rotation.x = swing * 0.35
-    this.armR.rotation.z = 0.22
-    this.forearmL.rotation.x = 0.25 + Math.max(0, -swing) * 0.25
-    this.forearmR.rotation.x = 0.35 + Math.max(0, swing) * 0.15
-    this.weapon.rotation.set(-0.65, 0, 0.1)
+    const armSwing = scout ? 0.22 : authored || robe ? 0.22 : 0.48
+    this.armL.rotation.x = -swing * armSwing
+    this.armR.rotation.x = swing * (scout ? 0.16 : authored || robe ? 0.16 : 0.35)
+    this.armR.rotation.z = scout ? 0.08 : authored || robe ? 0 : 0.22
+    this.forearmL.rotation.x = (authored || robe ? 0.06 : 0.25) + Math.max(0, -swing) * (scout ? 0.12 : authored || robe ? 0.1 : 0.25)
+    this.forearmR.rotation.x = (authored || robe ? 0.06 : 0.35) + Math.max(0, swing) * (scout ? 0.08 : authored || robe ? 0.08 : 0.15)
+    if (!authored) this.weapon.rotation.set(-0.65, 0, 0.1)
     this.body.position.y = Math.abs(swing) * 0.04
     this.torso.rotation.y = swing * 0.08
     this.torso.rotation.z = swing * 0.03
@@ -859,6 +943,14 @@ export class Actor3D {
   }
 
   private poseIdle(): void {
+    if (this.kind === 'golem' || this.gltfWarden() || this.gltfMystic() || this.gltfScout()) {
+      this.armL.rotation.x = Math.sin(this.phase) * 0.05
+      this.armR.rotation.x = -Math.sin(this.phase) * 0.04
+      this.head.rotation.y = Math.sin(this.phase * 0.4) * 0.1
+      this.body.position.y = Math.sin(this.phase) * 0.02
+      this.torso.rotation.x = Math.sin(this.phase) * 0.03
+      return
+    }
     this.armL.rotation.x = Math.sin(this.phase) * 0.06
     this.armR.rotation.x = -Math.sin(this.phase) * 0.05
     this.armR.rotation.z = 0.22
@@ -888,15 +980,17 @@ export class Actor3D {
 
   private poseAttack(wind: number, arc: number, rec: number): void {
     if (this.kind === 'golem') {
-      this.armR.rotation.set(-2.35 * (1 - arc) + 0.7 * arc, 0, 0.15)
-      this.armL.rotation.set(-2.25 * (1 - arc) + 0.65 * arc, 0, -0.15)
-      this.torso.rotation.x = -0.38 * (1 - arc) + 0.5 * arc
-      this.head.rotation.x = -0.2 * (1 - arc) + 0.25 * arc
-      this.body.position.y = 0.28 * (1 - arc) - 0.08 * arc
-      this.legL.rotation.x = 0.3 * (1 - arc) - 0.2 * arc
-      this.legR.rotation.x = 0.3 * (1 - arc) + 0.4 * arc
-      this.shinL.rotation.x = 0.5 * (1 - arc)
-      this.shinR.rotation.x = 0.5 * (1 - arc) + 0.25 * arc
+      this.armR.rotation.set(-1.15 * (1 - arc) + 0.55 * arc, 0, 0.08)
+      this.armL.rotation.set(-1.05 * (1 - arc) + 0.5 * arc, 0, -0.08)
+      this.forearmR.rotation.x = 0.15 * (1 - arc)
+      this.forearmL.rotation.x = 0.12 * (1 - arc)
+      this.torso.rotation.x = -0.28 * (1 - arc) + 0.35 * arc
+      this.head.rotation.x = -0.12 * (1 - arc) + 0.18 * arc
+      this.body.position.y = 0.16 * (1 - arc) - 0.06 * arc
+      this.legL.rotation.x = 0.22 * (1 - arc) - 0.16 * arc
+      this.legR.rotation.x = 0.22 * (1 - arc) + 0.32 * arc
+      this.shinL.rotation.x = 0.28 * (1 - arc)
+      this.shinR.rotation.x = 0.28 * (1 - arc) + 0.18 * arc
       return
     }
 
@@ -905,23 +999,37 @@ export class Actor3D {
       return
     }
 
+    const kael = this.gltfWarden()
+    const nyra = this.gltfScout()
     const slash: SlashKey[] =
-      this.kind === 'scout'
+      nyra
+        ? [
+            { t: 0, arm: [0.35, 0.12, 0.28], fore: -0.45, weap: [0, 0, 0], torsoY: -0.22, armL: [-0.18, 0, -0.08], legL: 0.28, legR: -0.18 },
+            { t: 0.45, arm: [-0.85, 0.06, 0.12], fore: -0.08, weap: [0, 0, 0], torsoY: 0.1, armL: [-0.28, 0, -0.04], legL: -0.12, legR: 0.22 },
+            { t: 1, arm: [-0.75, -0.08, -0.16], fore: 0.06, weap: [0, 0, 0], torsoY: 0.24, armL: [-0.1, 0, 0.04], legL: -0.22, legR: 0.32 },
+          ]
+        : this.kind === 'scout'
         ? [
             { t: 0, arm: [0.55, 0.25, 0.95], fore: -0.95, weap: [-0.25, 0.1, 0.2], torsoY: -0.4, armL: [-0.4, 0, -0.3], legL: 0.15, legR: -0.12 },
             { t: 0.45, arm: [-1.25, 0.08, 0.5], fore: -0.15, weap: [0.1, 0, 0.05], torsoY: 0.12, armL: [-0.55, 0, -0.12], legL: -0.12, legR: 0.22 },
             { t: 1, arm: [-1.15, -0.15, -0.35], fore: 0.18, weap: [0.4, -0.08, -0.08], torsoY: 0.42, armL: [-0.2, 0, 0.08], legL: -0.28, legR: 0.35 },
           ]
-        : [
-            { t: 0, arm: [0.65, 0.3, 1.05], fore: -1.1, weap: [-0.3, 0.18, 0.22], torsoY: -0.48, armL: [-0.45, 0, -0.4], legL: 0.22, legR: -0.18 },
-            { t: 0.42, arm: [-1.4, 0.08, 0.52], fore: -0.18, weap: [0.08, 0.04, 0.06], torsoY: 0.18, armL: [-0.65, 0, -0.18], legL: -0.1, legR: 0.2 },
-            { t: 1, arm: [-1.2, -0.18, -0.38], fore: 0.16, weap: [0.42, -0.1, -0.12], torsoY: 0.5, armL: [-0.22, 0, 0.1], legL: -0.32, legR: 0.4 },
-          ]
+        : kael
+          ? [
+              { t: 0, arm: [0.45, 0.15, 0.32], fore: -0.55, weap: [0, 0, 0], torsoY: -0.28, armL: [-0.22, 0, -0.1], legL: 0.16, legR: -0.12 },
+              { t: 0.42, arm: [-1.05, 0.05, 0.16], fore: -0.08, weap: [0, 0, 0], torsoY: 0.12, armL: [-0.38, 0, -0.06], legL: -0.08, legR: 0.16 },
+              { t: 1, arm: [-0.95, -0.1, -0.2], fore: 0.08, weap: [0, 0, 0], torsoY: 0.32, armL: [-0.14, 0, 0.05], legL: -0.22, legR: 0.28 },
+            ]
+          : [
+              { t: 0, arm: [0.65, 0.3, 1.05], fore: -1.1, weap: [-0.3, 0.18, 0.22], torsoY: -0.48, armL: [-0.45, 0, -0.4], legL: 0.22, legR: -0.18 },
+              { t: 0.42, arm: [-1.4, 0.08, 0.52], fore: -0.18, weap: [0.08, 0.04, 0.06], torsoY: 0.18, armL: [-0.65, 0, -0.18], legL: -0.1, legR: 0.2 },
+              { t: 1, arm: [-1.2, -0.18, -0.38], fore: 0.16, weap: [0.42, -0.1, -0.12], torsoY: 0.5, armL: [-0.22, 0, 0.1], legL: -0.32, legR: 0.4 },
+            ]
 
-    const restArm: [number, number, number] = [0, 0, 0.22]
-    const restFore = 0.38
-    const restWeap: [number, number, number] = [-0.62, 0, 0.12]
-    const restArmL: [number, number, number] = [0, 0, -0.12]
+    const restArm: [number, number, number] = kael || nyra ? [0, 0, 0] : [0, 0, 0.22]
+    const restFore = kael || nyra ? 0 : 0.38
+    const restWeap: [number, number, number] = kael || nyra ? [0, 0, 0] : [-0.62, 0, 0.12]
+    const restArmL: [number, number, number] = kael || nyra ? [0, 0, 0] : [0, 0, -0.12]
 
     if (wind > 0 && arc < 0.02) {
       this.applySlash(restArm, slash[0].arm, restFore, slash[0].fore, restWeap, slash[0].weap, restArmL, slash[0].armL, 0, slash[0].torsoY, 0, slash[0].legL, 0, slash[0].legR, wind)
@@ -934,8 +1042,20 @@ export class Actor3D {
 
   private poseCast(wind: number, arc: number, rec: number): void {
     const fade = rec > 0 ? 1 - rec : 1
+    const authored = this.gltfMystic()
     if (wind > 0 && arc < 0.02) {
       const t = wind
+      if (authored) {
+        this.armR.rotation.set(-0.55 * t, 0.08 * t, 0.12 * t)
+        this.forearmR.rotation.x = -0.22 * t
+        this.weapon.rotation.set(0, 0, 0)
+        this.armL.rotation.set(-0.72 * t, 0, -0.16 * t)
+        this.torso.rotation.set(-0.1 * t, -0.06 * t, 0)
+        this.head.rotation.x = -0.06 * t
+        this.legL.rotation.x = 0.05 * t
+        this.legR.rotation.x = -0.04 * t
+        return
+      }
       this.armR.rotation.set(-1.15 * t, 0.18 * t, 0.32 * t)
       this.forearmR.rotation.x = -0.5 * t
       this.weapon.rotation.set(0.55 * t, 0, 0.12 * t)
@@ -946,14 +1066,25 @@ export class Actor3D {
       this.legR.rotation.x = -0.06 * t
       return
     }
-    this.armR.rotation.set(lerp(-1.15, -1.62, arc), lerp(0.18, 0.04, arc), lerp(0.32, 0.06, arc))
-    this.forearmR.rotation.x = lerp(-0.5, 0.3, arc)
-    this.weapon.rotation.set(lerp(0.55, 0.06, arc), 0, lerp(0.12, 0, arc))
-    this.armL.rotation.set(lerp(-0.9, -0.4, arc), 0, lerp(-0.38, 0.08, arc))
-    this.torso.rotation.set(lerp(-0.16, 0.1, arc), lerp(-0.1, 0.16, arc), 0)
-    this.head.rotation.x = lerp(-0.08, 0.12, arc)
-    this.legL.rotation.x = lerp(0.08, -0.18, arc)
-    this.legR.rotation.x = lerp(-0.06, 0.2, arc)
+    if (authored) {
+      this.armR.rotation.set(lerp(-0.55, -0.85, arc), lerp(0.08, 0.04, arc), lerp(0.12, 0.04, arc))
+      this.forearmR.rotation.x = lerp(-0.22, 0.12, arc)
+      this.weapon.rotation.set(0, 0, 0)
+      this.armL.rotation.set(lerp(-0.72, -0.35, arc), 0, lerp(-0.16, 0.06, arc))
+      this.torso.rotation.set(lerp(-0.1, 0.08, arc), lerp(-0.06, 0.1, arc), 0)
+      this.head.rotation.x = lerp(-0.06, 0.08, arc)
+      this.legL.rotation.x = lerp(0.05, -0.1, arc)
+      this.legR.rotation.x = lerp(-0.04, 0.12, arc)
+    } else {
+      this.armR.rotation.set(lerp(-1.15, -1.62, arc), lerp(0.18, 0.04, arc), lerp(0.32, 0.06, arc))
+      this.forearmR.rotation.x = lerp(-0.5, 0.3, arc)
+      this.weapon.rotation.set(lerp(0.55, 0.06, arc), 0, lerp(0.12, 0, arc))
+      this.armL.rotation.set(lerp(-0.9, -0.4, arc), 0, lerp(-0.38, 0.08, arc))
+      this.torso.rotation.set(lerp(-0.16, 0.1, arc), lerp(-0.1, 0.16, arc), 0)
+      this.head.rotation.x = lerp(-0.08, 0.12, arc)
+      this.legL.rotation.x = lerp(0.08, -0.18, arc)
+      this.legR.rotation.x = lerp(-0.06, 0.2, arc)
+    }
     if (fade < 1) {
       this.armR.rotation.x *= fade
       this.armR.rotation.y *= fade
@@ -1043,9 +1174,17 @@ export class Actor3D {
   private poseBeetle(swing: number, wind: number, strike: number): void {
     this.beetleLegs.forEach((leg, i) => {
       const s = Math.sin(this.phase * 1.4 + i * 1.1)
-      const side = leg.position.x > 0 ? -1 : 1
-      leg.rotation.z = side * (0.75 + (this.anim === 'walk' ? s * 0.28 : 0.05) + wind * 0.15)
-      leg.rotation.x = this.anim === 'walk' ? s * 0.22 : strike * 0.35
+      if (this.fromGltf) {
+        const amp = this.anim === 'walk' ? 0.55 : this.anim === 'attack' ? 0.32 : 0.12
+        const side = leg.position.x > 0 ? -1 : 1
+        leg.rotation.x = s * amp + strike * 0.45
+        leg.rotation.y = s * amp * 0.22
+        leg.rotation.z = s * amp * 0.72 + side * (0.06 + wind * 0.28)
+      } else {
+        const side = leg.position.x > 0 ? -1 : 1
+        leg.rotation.z = side * (0.75 + (this.anim === 'walk' ? s * 0.28 : 0.05) + wind * 0.15)
+        leg.rotation.x = this.anim === 'walk' ? s * 0.22 : strike * 0.35
+      }
     })
     this.head.rotation.y = this.anim === 'idle' ? Math.sin(this.phase * 0.5) * 0.2 : 0
     this.head.rotation.x = -0.25 * wind + 0.2 * strike
@@ -1057,14 +1196,22 @@ export class Actor3D {
 
   private poseWraith(swing: number, wind: number, strike: number): void {
     this.body.position.y = 0.14 + Math.sin(this.phase) * 0.06 + 0.18 * wind
-    this.armL.rotation.x = Math.sin(this.phase * 0.7) * 0.15 - 1.35 * wind - 0.9 * strike
-    this.armR.rotation.x = -Math.sin(this.phase * 0.7) * 0.15 - 1.35 * wind - 0.9 * strike
-    this.armL.rotation.z = -0.25 - 0.55 * wind + 0.2 * strike
-    this.armR.rotation.z = 0.25 + 0.55 * wind - 0.2 * strike
+    if (this.fromGltf) {
+      this.armL.rotation.x = Math.sin(this.phase * 0.7) * 0.12 - 0.55 * wind - 0.4 * strike
+      this.armR.rotation.x = -Math.sin(this.phase * 0.7) * 0.12 - 0.55 * wind - 0.4 * strike
+      this.armL.rotation.z = -0.12 * wind + 0.1 * strike
+      this.armR.rotation.z = 0.12 * wind - 0.1 * strike
+    } else {
+      this.armL.rotation.x = Math.sin(this.phase * 0.7) * 0.15 - 1.35 * wind - 0.9 * strike
+      this.armR.rotation.x = -Math.sin(this.phase * 0.7) * 0.15 - 1.35 * wind - 0.9 * strike
+      this.armL.rotation.z = -0.25 - 0.55 * wind + 0.2 * strike
+      this.armR.rotation.z = 0.25 + 0.55 * wind - 0.2 * strike
+    }
     if (this.anim === 'walk') this.body.rotation.y = swing * 0.08
     this.body.rotation.x = -0.15 * wind + 0.4 * strike
     this.body.position.z = 0.22 * strike
     this.head.rotation.x = -0.2 * wind + 0.15 * strike
+    this.head.rotation.y = this.anim === 'idle' ? Math.sin(this.phase * 0.45) * 0.16 : 0
   }
 
   private updateCloth(dt: number, _swing: number, wind: number, strike: number): void {
@@ -1130,8 +1277,16 @@ export class Actor3D {
         m.userData.baseEmColor = m.emissive.getHex()
       }
       if (this.flash > 0) {
-        m.emissive.setHex(0xffffff)
-        m.emissiveIntensity = 0.55
+        if (this.kind === 'wraith') {
+          m.emissive.setHex(0x6eb8c4)
+          m.emissiveIntensity = 0.16
+        } else if (this.kind === 'golem') {
+          m.emissive.setHex(0xb45a3a)
+          m.emissiveIntensity = 0.14
+        } else {
+          m.emissive.setHex(0xffffff)
+          m.emissiveIntensity = this.fromGltf ? 0.22 : 0.55
+        }
       } else {
         m.emissive.setHex(m.userData.baseEmColor)
         m.emissiveIntensity = m.userData.baseEm

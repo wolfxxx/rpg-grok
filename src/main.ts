@@ -39,11 +39,9 @@ class App {
 
   renderTitle(): void {
     app.innerHTML = `
-      <div class="shell">
-        <section class="title-screen" style="--title-bg: url('${publicUrl('/assets/velum-title-bg.png')}')">
+      <div class="shell title-shell">
+        <section class="title-screen" style="--title-bg: url('${publicUrl('/assets/velum-cover.png')}')">
           <div class="title-content">
-            <h1 class="brand">VEL<span>UM</span></h1>
-            <p class="tagline">Stylized 3D battlefield. Slash, dodge, seal the veil.</p>
             <div class="btn-row"><button class="btn" id="start">Play</button></div>
             <p class="hint">Hold LMB to move · Click enemies to attack · Q skill · RMB dodge</p>
           </div>
@@ -149,6 +147,7 @@ class App {
         window.setTimeout(() => this.showFallen(), 700)
       }
     }, carry)
+    this.showDialogue(this.game.openingBrief())
   }
 
   renderPlay(): void {
@@ -164,10 +163,12 @@ class App {
                 <div class="hud-sub" id="hp-text">—</div>
                 <div class="hud-stats" id="hud-stats"></div>
               </div>
-              <div class="pill"><span id="relic-label">Crystals</span> <strong id="crystal-count">0/3</strong></div>
-              <div class="pill" id="skill-pill">Q Skill</div>
-              <div id="boon-hud" class="boon-hud"></div>
-              <div class="pill muted">LMB move · RMB dodge · Q skill · E talk</div>
+              <div class="play-meta">
+                <div class="pill"><span id="relic-label">Crystals</span> <strong id="crystal-count">0/3</strong></div>
+                <div class="pill" id="skill-pill">Q Skill</div>
+                <div id="boon-hud" class="boon-hud"></div>
+                <div class="pill muted">LMB move · RMB dodge · Q skill · E talk</div>
+              </div>
             </div>
             <div id="toast" class="toast hidden"></div>
             <div id="dialogue" class="dialogue-box hidden"></div>
@@ -397,23 +398,14 @@ class App {
 
   showDialogue(lines: string[]): void {
     const box = app.querySelector('#dialogue')
-    if (!box || !this.game) return
-    this.game.setPaused(true)
-    let i = 0
-    const paint = () => {
-      box.classList.remove('hidden')
-      box.innerHTML = `<p>${lines[i]}</p><button class="btn" id="dlg-next">${i < lines.length - 1 ? 'Continue' : 'Got it'}</button>`
-      box.querySelector('#dlg-next')!.addEventListener('click', () => {
-        if (i < lines.length - 1) {
-          i += 1
-          paint()
-        } else {
-          box.classList.add('hidden')
-          this.game?.setPaused(false)
-        }
-      })
-    }
-    paint()
+    if (!box) return
+    this.game?.setPaused(true)
+    box.classList.remove('hidden')
+    box.innerHTML = `${lines.map((line) => `<p>${line}</p>`).join('')}<button class="btn" id="dlg-next">Got it</button>`
+    box.querySelector('#dlg-next')!.addEventListener('click', () => {
+      box.classList.add('hidden')
+      this.game?.setPaused(false)
+    })
   }
 
   renderEnd(won: boolean): void {

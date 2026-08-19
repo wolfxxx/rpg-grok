@@ -256,25 +256,25 @@ export class ActionGame {
     this.last = performance.now()
     audio.unlock()
     audio.setBed('camp')
+    this.paused = true
     this.raf = requestAnimationFrame((t) => this.frame(t))
-    this.onEvent({
-      type: 'dialogue',
-      lines:
-        this.act === 2
-          ? [
-              'The camp emptied after the Golem fell.',
-              'We held a plug. The wound sank anyway. They left marks on the road. E to read them.',
-              'South of the gate a ridge looks on the tear. The well still mends if you stand still.',
-              'The Colossus is that wound, walking. It wakes if you enter the basin.',
-            ]
-          : [
-              'Elder Voss: The veil tore open. Three Velum Crystals fell across these ruins.',
-              'Gather them. Each crystal offers a gift. When the triad is whole, the well offers one last gift.',
-              'Then face the Ash Golem in the southeast.',
-              'Hold LMB to move · Click to strike · Q skill · RMB / Shift dodge · E talk',
-              'Watch the red marks. Step out before they land.',
-            ],
-    })
+  }
+
+  openingBrief(): string[] {
+    return this.act === 2
+      ? [
+          'The camp emptied after the Golem fell.',
+          'We held a plug. The wound sank anyway. They left marks on the road. E to read them.',
+          'South of the gate a ridge looks on the tear. The well still mends if you stand still.',
+          'The Colossus is that wound, walking. It wakes if you enter the basin.',
+        ]
+      : [
+          'Elder Voss: The veil tore open. Three Velum Crystals fell across these ruins.',
+          'Gather them. Each crystal offers a gift. When the triad is whole, the well offers one last gift.',
+          'Then face the Ash Golem in the southeast.',
+          'Hold LMB to move · Click to strike · Q skill · RMB / Shift dodge · E talk',
+          'Watch the red marks. Step out before they land.',
+        ]
   }
 
   destroy(): void {
@@ -346,7 +346,7 @@ export class ActionGame {
       this.updatePointer(e.clientX, e.clientY)
       if (e.button === 0) {
         this.mouseDown = true
-        this.setClickIntent()
+        this.setClickIntent(false)
       } else if (e.button === 2) {
         e.preventDefault()
         this.tryDodge()
@@ -357,7 +357,7 @@ export class ActionGame {
     }
     const onMouseMove = (e: MouseEvent) => {
       this.updatePointer(e.clientX, e.clientY)
-      if (this.mouseDown && !this.paused && !this.dead && !this.won) this.setClickIntent()
+      if (this.mouseDown && !this.paused && !this.dead && !this.won) this.setClickIntent(true)
     }
     const onContext = (e: Event) => e.preventDefault()
 
@@ -406,7 +406,15 @@ export class ActionGame {
     this.pointerAngle = Math.atan2(this.pointerY - this.y, this.pointerX - this.x)
   }
 
-  private setClickIntent(): void {
+  private setClickIntent(fromHold: boolean): void {
+    // Hold-to-move must not turn into an attack just because the cursor
+    // passes near a foe. Only a fresh click on an enemy starts a chase.
+    if (fromHold && !this.attackTarget) {
+      this.moveTX = this.pointerX
+      this.moveTY = this.pointerY
+      this.markerLife = 0.35
+      return
+    }
     const enemy = this.enemyAt(this.pointerX, this.pointerY)
     if (enemy) {
       this.attackTarget = enemy
@@ -423,7 +431,7 @@ export class ActionGame {
 
   private enemyAt(x: number, y: number): Enemy | null {
     let best: Enemy | null = null
-    let bestD = 48
+    let bestD = 18
     for (const e of this.enemies) {
       if (!e.alive) continue
       if (e.id === 'golem' && !this.bossUnlocked) continue

@@ -73,8 +73,8 @@ function elev(wx: number, wz: number, extra = 0): number {
 }
 
 const BAR_H: Record<string, number> = {
-  beetle: 2.05,
-  wraith: 2.95,
+  beetle: 1.12,
+  wraith: 2.55,
   golem: 4.15,
 }
 
